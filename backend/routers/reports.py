@@ -1,0 +1,311 @@
+"""
+Reports Router
+Handles report generation API endpoints
+"""
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
+from typing import Optional
+from datetime import date, datetime
+import csv
+import io
+
+from database import get_db
+from services.report_generator import ReportGenerator
+
+router = APIRouter(prefix="/reports", tags=["reports"])
+
+
+def parse_date(date_str: Optional[str]) -> Optional[date]:
+    """Parse date string to date object"""
+    if not date_str:
+        return None
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+@router.get("/dashboard")
+async def get_dashboard_summary(
+    db: Session = Depends(get_db)
+):
+    """
+    Get dashboard summary statistics
+    """
+    generator = ReportGenerator(db)
+    return generator.get_dashboard_summary()
+
+
+@router.get("/dashboard-stats")
+async def get_dashboard_daily_stats(
+    week_start: Optional[str] = Query(None, description="Week start date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get daily WFO/WFH stats for dashboard chart
+    """
+    generator = ReportGenerator(db)
+    week_date = parse_date(week_start)
+    return generator.get_dashboard_daily_stats(week_start=week_date)
+
+
+@router.get("/daily-details")
+async def get_daily_details(
+    date: str = Query(..., description="Date (YYYY-MM-DD)"),
+    status: str = Query("WFO", description="Status category: WFO or WFH"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get details of employees for specific day and status
+    """
+    generator = ReportGenerator(db)
+    return generator.get_daily_details(date_str=date, status_category=status)
+
+
+@router.get("/all-employees")
+async def get_all_employees_report(
+    week_start: Optional[str] = Query(None, description="Week start date (YYYY-MM-DD)"),
+    sort_by: str = Query("name", description="Sort by: name, compliance, hours, status"),
+    sort_order: str = Query("asc", description="Sort order: asc, desc"),
+    status_filter: Optional[str] = Query(None, description="Filter by status: RED, AMBER, GREEN"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get report for all employees
+    """
+    generator = ReportGenerator(db)
+    week_date = parse_date(week_start)
+    
+    return {
+        "employees": generator.get_all_employees_report(
+            week_start=week_date,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            status_filter=status_filter
+        ),
+        "available_weeks": generator.get_available_weeks()
+    }
+
+
+@router.get("/individual/{employee_code}")
+async def get_individual_report(
+    employee_code: str,
+    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get detailed report for a single employee
+    """
+    generator = ReportGenerator(db)
+    
+    report = generator.get_individual_report(
+        employee_code=employee_code,
+        start_date=parse_date(start_date),
+        end_date=parse_date(end_date)
+    )
+    
+    if not report:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    return report
+
+
+@router.get("/wfo-compliance")
+async def get_wfo_compliance_report(
+    week_start: Optional[str] = Query(None, description="Week start date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get WFO compliance report
+    """
+    generator = ReportGenerator(db)
+    week_date = parse_date(week_start)
+    
+    report = generator.get_wfo_compliance_report(week_start=week_date)
+    report['available_weeks'] = generator.get_available_weeks()
+    
+    return report
+
+
+@router.get("/weeks")
+async def get_available_weeks(
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of available weeks
+    """
+    generator = ReportGenerator(db)
+    return {"weeks": generator.get_available_weeks()}
+
+
+@router.get("/export/all-employees")
+async def export_all_employees_csv(
+    week_start: Optional[str] = Query(None, description="Week start date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Export all employees report as CSV
+    """
+    generator = ReportGenerator(db)
+    week_date = parse_date(week_start)
+    
+    employees = generator.get_all_employees_report(week_start=week_date)
+    
+    # Create CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow([
+        'Employee Code', 'Employee Name', 'Department', 
+        'Total Office Hours', 'WFO Days', 'Expected Hours',
+        'Compliance %', 'Status'
+    ])
+    
+    # Data rows
+    for emp in employees:
+        writer.writerow([
+            emp['employee_code'],
+            emp['employee_name'],
+            emp['department'] or '',
+            emp['total_office_hours'],
+            emp['wfo_days'],
+            emp['expected_hours'],
+            f"{emp['compliance_percentage']:.2f}%",
+            emp['status']
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=all_employees_report.csv"}
+    )
+
+
+@router.get("/export/wfo-compliance")
+async def export_wfo_compliance_csv(
+    week_start: Optional[str] = Query(None, description="Week start date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Export WFO compliance report as CSV
+    """
+    generator = ReportGenerator(db)
+    week_date = parse_date(week_start)
+    
+    report = generator.get_wfo_compliance_report(week_start=week_date)
+    
+    # Create CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow([
+        'Employee Code', 'Employee Name', 
+        'WFO Days', 'Actual Hours', 'Expected Hours',
+        'Compliance %', 'Status', 'Compliant'
+    ])
+    
+    # Data rows
+    for emp in report['employees']:
+        writer.writerow([
+            emp['employee_code'],
+            emp['employee_name'],
+            emp['wfo_days'],
+            emp['actual_hours'],
+            emp['expected_hours'],
+            f"{emp['compliance_percentage']:.2f}%",
+            emp['status'],
+            'Yes' if emp['is_compliant'] else 'No'
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=wfo_compliance_report.csv"}
+    )
+
+
+@router.get("/export/individual/{employee_code}")
+async def export_individual_csv(
+    employee_code: str,
+    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Export individual employee report as CSV
+    """
+    generator = ReportGenerator(db)
+    
+    report = generator.get_individual_report(
+        employee_code=employee_code,
+        start_date=parse_date(start_date),
+        end_date=parse_date(end_date)
+    )
+    
+    if not report:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    # Create CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Employee info
+    writer.writerow(['Employee Report'])
+    writer.writerow(['Code', report['employee']['code']])
+    writer.writerow(['Name', report['employee']['name']])
+    writer.writerow(['Department', report['employee']['department'] or ''])
+    if start_date or end_date:
+        writer.writerow(['Period', f"{start_date or 'Start'} to {end_date or 'End'}"])
+    writer.writerow([])
+    
+    # Summary
+    writer.writerow(['Summary'])
+    writer.writerow(['Total Office Hours', report['summary']['total_office_hours']])
+    writer.writerow(['Total WFO Days', report['summary']['total_wfo_days']])
+    writer.writerow(['Average Compliance', f"{report['summary']['avg_compliance']}%"])
+    writer.writerow(['Overall Status', report['summary']['overall_status']])
+    writer.writerow([])
+    
+    # Daily records
+    writer.writerow(['Daily Records'])
+    writer.writerow(['Date', 'Day', 'First In', 'Last Out', 'Time Logs (All Punches)', 'Total Hours', 'Status'])
+    
+    for day in report['daily_records']:
+        # Format time logs
+        time_logs = ""
+        if day.get('in_out_pairs'):
+            logs = []
+            for pair in day['in_out_pairs']:
+                # pair is {in: "HH:MM", out: "HH:MM"} or {in: "HH:MM", out: None}
+                # Check structure of in_out_pairs from report_generator.
+                # It loads JSON. The structure in generator is list of dicts.
+                p_in = pair.get('in', '-')
+                p_out = pair.get('out', '-')
+                logs.append(f"{p_in}-{p_out}")
+            time_logs = ", ".join(logs)
+            
+        writer.writerow([
+            day['date'],
+            day['day'],
+            day['first_in'],
+            day['last_out'],
+            time_logs,
+            day['total_hours'],
+            day['status']
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={employee_code}_report.csv"}
+    )

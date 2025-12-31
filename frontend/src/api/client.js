@@ -1,0 +1,155 @@
+/**
+ * API Client for Biometrics Attendance System
+ */
+
+const API_BASE_URL = 'http://localhost:8000/api';
+
+/**
+ * Make API request with error handling
+ */
+async function request(endpoint, options = {}) {
+    const url = `${API_BASE_URL}${endpoint}`;
+
+    const defaultOptions = {
+        headers: {
+            'Content-Type': 'application/json',
+        },
+    };
+
+    const config = {
+        ...defaultOptions,
+        ...options,
+        headers: {
+            ...defaultOptions.headers,
+            ...options.headers,
+        },
+    };
+
+    // Don't set Content-Type for FormData
+    if (options.body instanceof FormData) {
+        delete config.headers['Content-Type'];
+    }
+
+    try {
+        const response = await fetch(url, config);
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
+            throw new Error(error.detail || `HTTP ${response.status}`);
+        }
+
+        // Handle CSV/file downloads
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/csv')) {
+            return response.blob();
+        }
+
+        return response.json();
+    } catch (error) {
+        console.error('API Error:', error);
+        throw error;
+    }
+}
+
+/**
+ * API methods
+ */
+export const api = {
+    // Dashboard
+    getDashboardSummary: () => request('/reports/dashboard'),
+
+    getDashboardStats: (params = {}) => {
+        const searchParams = new URLSearchParams(params);
+        return request(`/reports/dashboard-stats?${searchParams}`);
+    },
+
+    getDailyDetails: (params = {}) => {
+        const searchParams = new URLSearchParams(params);
+        return request(`/reports/daily-details?${searchParams}`);
+    },
+
+    // Settings
+    getSettings: () => request('/settings'),
+
+    updateSettings: (data) => request('/settings', {
+        method: 'PUT',
+        body: JSON.stringify(data)
+    }),
+
+    // Upload
+    uploadFile: async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        return request('/upload/', {
+            method: 'POST',
+            body: formData,
+        });
+    },
+
+    // Employees
+    getEmployees: (params = {}) => {
+        const searchParams = new URLSearchParams(params);
+        return request(`/employees/?${searchParams}`);
+    },
+
+    getEmployee: (code) => request(`/employees/${code}`),
+
+    updateEmployee: (code, data) => request(`/employees/${code}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+
+    // Reports
+    getAllEmployeesReport: (params = {}) => {
+        const searchParams = new URLSearchParams(params);
+        return request(`/reports/all-employees?${searchParams}`);
+    },
+
+    getIndividualReport: (code, params = {}) => {
+        const searchParams = new URLSearchParams(params);
+        return request(`/reports/individual/${code}?${searchParams}`);
+    },
+
+    getWFOComplianceReport: (params = {}) => {
+        const searchParams = new URLSearchParams(params);
+        return request(`/reports/wfo-compliance?${searchParams}`);
+    },
+
+    getAvailableWeeks: () => request('/reports/weeks'),
+
+    // Exports
+    exportAllEmployees: async (weekStart) => {
+        const params = weekStart ? `?week_start=${weekStart}` : '';
+        const blob = await request(`/reports/export/all-employees${params}`);
+        downloadBlob(blob, 'all_employees_report.csv');
+    },
+
+    exportWFOCompliance: async (weekStart) => {
+        const params = weekStart ? `?week_start=${weekStart}` : '';
+        const blob = await request(`/reports/export/wfo-compliance${params}`);
+        downloadBlob(blob, 'wfo_compliance_report.csv');
+    },
+
+    exportIndividual: async (code, params = {}) => {
+        const searchParams = new URLSearchParams(params);
+        const blob = await request(`/reports/export/individual/${code}?${searchParams}`);
+        downloadBlob(blob, `${code}_report.csv`);
+    },
+};
+
+/**
+ * Download blob as file
+ */
+function downloadBlob(blob, filename) {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+export default api;
