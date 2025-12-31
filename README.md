@@ -2,8 +2,6 @@
 
 A production-ready, admin-only web application that processes fingerprint biometric attendance data and generates automated, real-time HR attendance reports.
 
-![Dashboard Preview](docs/dashboard-preview.png)
-
 ## 🎯 Features
 
 - **Data Import**: Upload biometric attendance logs (CSV/Excel)
