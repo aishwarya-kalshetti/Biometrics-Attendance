@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     
     # Work Policy Configuration
     EXPECTED_HOURS_PER_DAY: int = 8  # Expected office hours per WFO day
-    WFO_DAYS_PER_WEEK: int = 2  # Work From Office days per week
-    WFH_DAYS_PER_WEEK: int = 3  # Work From Home days per week
+    WFO_DAYS_PER_WEEK: int = 3  # Work From Office days per week
+    WFH_DAYS_PER_WEEK: int = 2  # Work From Home days per week
     
     # Expected weekly office hours (WFO days * hours per day)
     @property

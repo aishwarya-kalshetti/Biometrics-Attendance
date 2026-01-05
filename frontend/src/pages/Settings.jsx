@@ -26,8 +26,8 @@ export default function Settings() {
         try {
             await api.updateSettings({
                 expected_hours_per_day: settings?.expected_hours_per_day || 8,
-                wfo_days_per_week: settings?.wfo_days_per_week || 2,
-                wfh_days_per_week: settings?.wfh_days_per_week || 3,
+                wfo_days_per_week: settings?.wfo_days_per_week || 3,
+                wfh_days_per_week: settings?.wfh_days_per_week || 2,
                 threshold_red: settings?.thresholds?.red || 70,
                 threshold_amber: settings?.thresholds?.amber || 90,
                 min_hours_for_present: settings?.min_hours_for_present || 6
@@ -94,7 +94,7 @@ export default function Settings() {
                         <input
                             type="number"
                             className="form-input"
-                            value={settings?.wfo_days_per_week || 2}
+                            value={settings?.wfo_days_per_week || 3}
                             onChange={(e) => setSettings({
                                 ...settings,
                                 wfo_days_per_week: parseInt(e.target.value)
@@ -116,7 +116,7 @@ export default function Settings() {
                         <input
                             type="number"
                             className="form-input"
-                            value={settings?.wfh_days_per_week || 3}
+                            value={settings?.wfh_days_per_week || 2}
                             onChange={(e) => setSettings({
                                 ...settings,
                                 wfh_days_per_week: parseInt(e.target.value)
@@ -144,7 +144,7 @@ export default function Settings() {
                     <p className="text-secondary" style={{ fontSize: 'var(--font-size-sm)' }}>
                         Expected Weekly Office Hours:
                         <span className="font-bold text-primary" style={{ marginLeft: 'var(--spacing-2)' }}>
-                            {(settings?.wfo_days_per_week || 2) * (settings?.expected_hours_per_day || 8)} hours
+                            {(settings?.wfo_days_per_week || 3) * (settings?.expected_hours_per_day || 8)} hours
                         </span>
                         <span className="text-muted" style={{ marginLeft: 'var(--spacing-2)' }}>
                             ({settings?.expected_weekly_minutes || 960} minutes)

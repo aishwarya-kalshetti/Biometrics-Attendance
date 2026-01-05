@@ -253,6 +253,7 @@ export default function Dashboard() {
                     icon={Users}
                     value={summary?.total_employees || 0}
                     label="Total Employees"
+                    description="Active employees in the system for this week."
                     onClick={() => {
                         setModalData({
                             title: 'All Employees',
@@ -265,6 +266,7 @@ export default function Dashboard() {
                     icon={TrendingUp}
                     value={`${summary?.avg_compliance?.toFixed(1) || 0}%`}
                     label="Average Compliance"
+                    description="Overall adherence to WFO policy."
                     status={
                         (summary?.avg_compliance || 0) >= 90 ? 'green' :
                             (summary?.avg_compliance || 0) >= 70 ? 'amber' : 'red'
@@ -274,12 +276,14 @@ export default function Dashboard() {
                     icon={Building2}
                     value={summary?.total_wfo_days || 0}
                     label="Total WFO Days"
+                    description="Cumulative office days worked this week."
                     status="green"
                 />
                 <SummaryCard
                     icon={AlertTriangle}
                     value={summary?.alerts || 0}
                     label="Employees Below Target"
+                    description="Employees with < 70% compliance."
                     status="red"
                     onClick={() => {
                         const belowTarget = employees.filter(emp =>
@@ -463,9 +467,7 @@ export default function Dashboard() {
                                                         <div className="text-sm text-muted">ID: {emp.employee_code}</div>
                                                     </td>
                                                     <td style={{ padding: '12px' }}>
-                                                        <span className={emp.status === 'PRESENT' ? 'text-green font-medium' : 'text-muted'}>
-                                                            {emp.status}
-                                                        </span>
+                                                        <StatusBadge status={emp.status} />
                                                     </td>
                                                     <td style={{ padding: '12px' }}>{emp.hours}</td>
                                                     <td style={{ padding: '12px' }}>

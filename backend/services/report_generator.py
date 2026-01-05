@@ -88,21 +88,33 @@ class ReportGenerator:
         Returns:
             List of employee reports
         """
-        query = self.db.query(
-            Employee,
-            WeeklySummary
-        ).outerjoin(
-            WeeklySummary,
-            Employee.code == WeeklySummary.employee_code
-        )
-        
         if week_start:
-            query = query.filter(WeeklySummary.week_start == week_start)
+            # Filter by specific week in the JOIN condition to keep all employees
+            # (Outer join with condition ensures employees without data for this week are still returned)
+            query = self.db.query(Employee, WeeklySummary).outerjoin(
+                WeeklySummary,
+                and_(
+                    WeeklySummary.employee_code == Employee.code,
+                    WeeklySummary.week_start == week_start
+                )
+            )
         else:
             # Get latest week
             latest = self.db.query(func.max(WeeklySummary.week_start)).scalar()
             if latest:
-                query = query.filter(WeeklySummary.week_start == latest)
+                query = self.db.query(Employee, WeeklySummary).outerjoin(
+                    WeeklySummary,
+                    and_(
+                        WeeklySummary.employee_code == Employee.code,
+                        WeeklySummary.week_start == latest
+                    )
+                )
+            else:
+                # No data at all, just return employees
+                query = self.db.query(Employee, WeeklySummary).outerjoin(
+                    WeeklySummary,
+                    Employee.code == WeeklySummary.employee_code
+                )
         
         if status_filter:
             query = query.filter(WeeklySummary.status == status_filter)

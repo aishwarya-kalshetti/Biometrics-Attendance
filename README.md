@@ -1,189 +1,106 @@
-# Biometrics Attendance HR System
+# Biometrics Attendance System
 
-A production-ready, admin-only web application that processes fingerprint biometric attendance data and generates automated, real-time HR attendance reports.
+A comprehensive web-based dashboard for analyzing and managing employee attendance data from biometric machines.
 
-## 🎯 Features
+![Dashboard Preview](frontend/public/dashboard-preview.png)
 
-- **Data Import**: Upload biometric attendance logs (CSV/Excel)
-- **Automatic Calculations**: IN/OUT pairing, daily totals, weekly aggregation
-- **Hybrid Work Support**: Configurable WFO/WFH policy
-- **Color-Coded Reports**: RED (<70%), AMBER (70-90%), GREEN (>90%)
-- **Multiple Reports**:
-  - Individual Employee Report
-  - All Employees Summary
-  - WFO Compliance Report
-- **Export**: Download reports as CSV
+## 🚀 Overview
 
-## 🛠 Technology Stack
+This project is an **internal HR admin tool** designed to process raw punch-in/out data from Excel/CSV files and turn it into actionable insights. It replaces manual Excel reporting with a dynamic, visual dashboard.
 
-- **Frontend**: React + Vite
-- **Backend**: Python FastAPI
-- **Database**: SQLite (can be migrated to MySQL)
-- **Charts**: Recharts
+## 🛠 Tech Stack
 
-## 📁 Project Structure
+### Backend
+- **Python (FastAPI)**: High-performance web API.
+- **SQLite**: Lightweight, file-based database (no server installation required).
+- **SQLAlchemy**: ORM for database management.
+- **Pandas**: Efficient data processing for Excel imports.
 
-```
-Biometrics Attendence/
-├── backend/
-│   ├── main.py              # FastAPI application
-│   ├── config.py            # Configuration settings
-│   ├── database.py          # Database connection
-│   ├── models/              # SQLAlchemy models
-│   ├── services/            # Business logic
-│   └── routers/             # API endpoints
-│
-├── frontend/
-│   ├── src/
-│   │   ├── api/             # API client
-│   │   ├── components/      # Reusable components
-│   │   └── pages/           # Page components
-│   └── index.html
-│
-└── sample_data/
-    └── biometric_export.csv # Sample test data
-```
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.9+
-- Node.js 18+
-- npm or yarn
-
-### Backend Setup
-
-```bash
-cd backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the server
-python main.py
-```
-
-The API will be available at `http://localhost:8000`
-
-### Frontend Setup
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-```
-
-The dashboard will be available at `http://localhost:5173`
-
-## 📊 API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/upload/` | Upload attendance file |
-| GET | `/api/employees/` | List all employees |
-| GET | `/api/reports/dashboard` | Dashboard summary |
-| GET | `/api/reports/all-employees` | All employees report |
-| GET | `/api/reports/individual/{code}` | Individual report |
-| GET | `/api/reports/wfo-compliance` | WFO compliance report |
-| GET | `/api/reports/export/*` | Export reports as CSV |
-
-## ⚙️ Configuration
-
-The default hybrid work policy settings:
-
-| Setting | Default Value |
-|---------|---------------|
-| Expected hours per WFO day | 8 hours |
-| WFO days per week | 2 days |
-| WFH days per week | 3 days |
-| RED threshold | <70% |
-| AMBER threshold | 70-90% |
-| GREEN threshold | >90% |
-
-These can be modified in `backend/config.py` or via the Settings page.
-
-## 📝 Data Format
-
-The system accepts CSV/Excel files with the following columns:
-
-| Column | Required | Description |
-|--------|----------|-------------|
-| DATE | Yes | Date (DD/MM/YYYY) |
-| CODE | Yes | Employee ID |
-| NAME | Yes | Employee name |
-| IN | Yes | Clock-in time (HH:MM) |
-| OUT | Yes | Clock-out time (HH:MM) |
-| TOTAL | No | Total hours (HH:MM:SS) |
-| SHIFT | No | Shift number |
-| LATE | No | Late indicator |
-| OT | No | Overtime |
-| REMARK | No | A=Absent, P=Present |
-
-## 🎨 Color Status Legend
-
-| Color | Range | Meaning |
-|-------|-------|---------|
-| 🔴 RED | <70% | Below Expectation |
-| 🟡 AMBER | 70-90% | Meets Expectation |
-| 🟢 GREEN | >90% | Excellent |
-
-## 📱 Screenshots
-
-### Dashboard
-Modern dashboard with summary cards, compliance charts, and employee overview.
-
-### Upload Data
-Drag-and-drop file upload with format validation and processing feedback.
-
-### All Employees Report
-Filterable and sortable table with color-coded compliance status.
-
-### WFO Compliance Report
-Detailed hybrid work policy compliance tracking.
-
-## 🔒 Security
-
-This is an admin-only internal tool. Authentication is not implemented in this version but can be added:
-
-1. Add FastAPI JWT authentication
-2. Implement login page in React
-3. Protect all routes with auth middleware
-
-## 🧪 Testing
-
-### Backend Tests
-```bash
-cd backend
-pytest tests/ -v
-```
-
-### Frontend Tests
-```bash
-cd frontend
-npm test
-```
-
-## 📄 License
-
-MIT License - feel free to use this project for your organization's HR attendance management.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
+### Frontend
+- **React.js (Vite)**: Fast, modern UI library.
+- **Lucide React**: Modern, clean icons.
+- **Recharts**: Beautiful, responsive charts.
+- **CSS Modules**: Modular styling.
 
 ---
 
-Built with ❤️ for HR teams managing hybrid workforces.
+## 💡 How It Works
+
+### 1. Data Logic
+The core logic resides in `backend/services/time_calculator.py`.
+
+*   **Status Definition**:
+    *   **PRESENT**: If an employee has **at least one** punch-in/out record for the day (regardless of total hours).
+    *   **ABSENT**: If no punches exist for the day.
+    *   **Minimum Hours**: Configurable in Settings (default: 6 hours). This setting separates "Present" from "Compliant".
+
+*   **Compliance Calculation**:
+    *   Formula: `(Actual Office Hours / Expected Hours) * 100`
+    *   **Expected Hours** = `WFO Days * 8 hours` (e.g., if you work 2 days, expected is 16h).
+    *   **Overtime**: Compliance can go above 100% if employees work more than expected.
+
+*   **Thresholds (Configurable)**:
+    *   🔴 **Below Target (< 70%)**: Needs improvement.
+    *   🟡 **Meets Target (70% - 90%)**: Satisfactory.
+    *   🟢 **Excellent (> 90%)**: Top performer.
+
+### 2. The Workflow
+1.  **HR Admin** uploads a raw biometric dump (Excel/CSV) via the "Upload Data" page.
+2.  **Backend** parses the file:
+    *   Skips invalid dates or missing employee codes.
+    *   Merges new data with existing records (updates logic if data overlaps).
+3.  **Dashboard** instantly updates to show:
+    *   Total Employees & Attendance Trends.
+    *   Compliance Charts (Pie & Bar).
+    *   Week-wise filters.
+
+### 3. Database
+*   Data is stored in `backend/attendance.db` (SQLite).
+*   This file is **persistent** (data remains after restart).
+*   To **reset** the system: Delete `attendance.db` and restart the backend. A fresh, empty DB will be created.
+
+---
+
+## ⚙️ Setup & Installation
+
+See the **[SETUP.md](SETUP.md)** file for detailed installation instructions.
+
+### Quick Start
+**Backend:**
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate  # or .\venv\Scripts\activate on Windows
+pip install -r requirements.txt
+python3 main.py
+```
+
+**Frontend:**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## 📂 Project Structure
+
+```
+├── backend/
+│   ├── attendance.db       # Database file (generated)
+│   ├── main.py             # Server entry point
+│   ├── models/             # Database tables (Employee, DailyAttendance)
+│   ├── routers/            # API endpoints (Upload, Reports, Settings)
+│   └── services/           # Business logic (Calculator, Parser)
+├── frontend/
+│   ├── src/
+│   │   ├── pages/          # Dashboard, All Employees, Settings
+│   │   ├── components/     # Reusable UI parts
+│   │   └── api/            # API connection logic
+└── SETUP.md                # Installation guide
+```
+
+## 🔐 Security Note
+*   The `attendance.db` file is listed in `.gitignore` to prevent uploading real employee data to public repositories.
+*   New clones of this repo will start with an **empty database**.
