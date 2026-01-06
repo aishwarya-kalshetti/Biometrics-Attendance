@@ -15,9 +15,12 @@ logger = logging.getLogger(__name__)
 class TimeCalculator:
     """Calculate attendance times and compliance metrics"""
     
-    def __init__(self, expected_hours_per_day: int = 8, wfo_days_per_week: int = 2):
+    def __init__(self, expected_hours_per_day: int = 8, wfo_days_per_week: int = 2, min_hours_for_present: int = 6, threshold_red: int = 70, threshold_amber: int = 90):
         self.expected_hours_per_day = expected_hours_per_day
         self.wfo_days_per_week = wfo_days_per_week
+        self.min_minutes_for_present = min_hours_for_present * 60
+        self.threshold_red = threshold_red
+        self.threshold_amber = threshold_amber
         self.expected_daily_minutes = expected_hours_per_day * 60
         self.expected_weekly_minutes = wfo_days_per_week * expected_hours_per_day * 60
     
@@ -84,7 +87,7 @@ class TimeCalculator:
         
         # Determine status
         # Determine status (Strict 6-hour rule)
-        if total_minutes >= 360:  # 6 hours = 360 minutes
+        if total_minutes >= self.min_minutes_for_present:
             status = "PRESENT"
         else:
             # Less than 6 hours = ABSENT (even if there are punches)
@@ -239,9 +242,9 @@ class TimeCalculator:
     
     def _get_status_color(self, percentage: float) -> str:
         """Get status color based on percentage"""
-        if percentage < 70:
+        if percentage < self.threshold_red:
             return "RED"
-        elif percentage <= 90:
+        elif percentage <= self.threshold_amber:
             return "AMBER"
         else:
             return "GREEN"

@@ -110,7 +110,10 @@ async def upload_attendance_file(
         
         calculator = TimeCalculator(
             expected_hours_per_day=dynamic_settings['expected_hours_per_day'],
-            wfo_days_per_week=dynamic_settings['wfo_days_per_week']
+            wfo_days_per_week=dynamic_settings['wfo_days_per_week'],
+            min_hours_for_present=dynamic_settings['min_hours_for_present'],
+            threshold_red=dynamic_settings['threshold_red'],
+            threshold_amber=dynamic_settings['threshold_amber']
         )
         
         daily_summaries = calculator.calculate_daily_summary(records)

@@ -218,9 +218,9 @@ class ReportGenerator:
                 daily_compliance = 0
             
             # Determine daily status color based on thresholds
-            if daily_compliance >= 90:
+            if daily_compliance > dynamic_settings['threshold_amber']:
                 daily_status_color = 'GREEN'
-            elif daily_compliance >= 70:
+            elif daily_compliance >= dynamic_settings['threshold_red']:
                 daily_status_color = 'AMBER'
             else:
                 daily_status_color = 'RED'
@@ -267,7 +267,7 @@ class ReportGenerator:
                 'total_office_hours': self._format_minutes(total_office_minutes),
                 'total_wfo_days': total_wfo_days,
                 'avg_compliance': round(avg_compliance, 2),
-                'overall_status': get_status_color(avg_compliance)
+                'overall_status': 'GREEN' if avg_compliance > dynamic_settings['threshold_amber'] else ('AMBER' if avg_compliance >= dynamic_settings['threshold_red'] else 'RED')
             },
             'daily_records': daily_data,
             'weekly_summaries': weekly_data
@@ -286,6 +286,10 @@ class ReportGenerator:
         Returns:
             WFO compliance report with all employees
         """
+        # Get dynamic settings
+        from routers.settings import get_dynamic_settings
+        dynamic_settings = get_dynamic_settings(self.db)
+        
         if not week_start:
             # Get latest week
             week_start = self.db.query(func.max(WeeklySummary.week_start)).scalar()
@@ -294,8 +298,8 @@ class ReportGenerator:
             return {
                 'week_start': None,
                 'week_end': None,
-                'expected_wfo_days': settings.WFO_DAYS_PER_WEEK,
-                'expected_hours_per_day': settings.EXPECTED_HOURS_PER_DAY,
+                'expected_wfo_days': dynamic_settings['wfo_days_per_week'],
+                'expected_hours_per_day': dynamic_settings['expected_hours_per_day'],
                 'employees': [],
                 'summary': {
                     'total_employees': 0,
@@ -318,7 +322,12 @@ class ReportGenerator:
         compliant_count = 0
         
         for summary, employee in summaries:
-            is_compliant = summary.compliance_percentage >= 70
+            # Compliant if Green (> threshold_amber) or Amber (>= threshold_red)?
+            # Usually "Compliant" means meeting the target. If Amber is "Meets Target" and Green is "Excellent",
+            # then anything >= threshold_red is compliant.
+            # Let's assume >= threshold_red is compliant (Meets Target or better).
+            
+            is_compliant = summary.compliance_percentage >= dynamic_settings['threshold_red']
             if is_compliant:
                 compliant_count += 1
             
@@ -345,8 +354,8 @@ class ReportGenerator:
             'week_start': week_start.isoformat(),
             'week_end': week_end.isoformat(),
             'week_label': f"{week_start.strftime('%d %b')} - {week_end.strftime('%d %b %Y')}",
-            'expected_wfo_days': settings.WFO_DAYS_PER_WEEK,
-            'expected_hours_per_day': settings.EXPECTED_HOURS_PER_DAY,
+            'expected_wfo_days': dynamic_settings['wfo_days_per_week'],
+            'expected_hours_per_day': dynamic_settings['expected_hours_per_day'],
             'employees': employees,
             'summary': {
                 'total_employees': total_employees,
